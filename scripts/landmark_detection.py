@@ -4,6 +4,7 @@ import numpy as np
 import pyrealsense2 as rs
 from camera_realsense import get_serial_numbers, get_images, initialize_pipelines
 import matplotlib.pyplot as plt
+from utils import draw_axes, draw_pose_cube
 
 # Initialize MediaPipe Hands module
 mp_hands = mp.solutions.hands
@@ -35,17 +36,6 @@ def get_middle_point(landmarks):
     pinky_finger = np.array([landmarks[17].x, landmarks[17].y, landmarks[17].z])
     middle_point = (wrist + index_finger + pinky_finger) / 3
     return middle_point
-
-
-def draw_axes(image, origin, x_axis, y_axis, z_axis, length=50):
-    origin = tuple(map(int, origin))
-    x_end = tuple(map(int, (origin[0] + length * x_axis[0], origin[1] - length * x_axis[1])))
-    y_end = tuple(map(int, (origin[0] + length * y_axis[0], origin[1] - length * y_axis[1])))
-    z_end = tuple(map(int, (origin[0] + length * z_axis[0], origin[1] - length * z_axis[1])))
-
-    cv2.arrowedLine(image, origin, x_end, (0, 0, 255), 2, tipLength=0.2)  # X - Red
-    cv2.arrowedLine(image, origin, y_end, (0, 255, 0), 2, tipLength=0.2)  # Y - Green
-    cv2.arrowedLine(image, origin, z_end, (255, 0, 0), 2, tipLength=0.2)  # Z - Blue
 
 
 def project_point_to_pixel(point_3d, intrinsics):
@@ -182,16 +172,17 @@ while True:
                 
                 # visualization
                 black_image = np.zeros((480, 640, 3), dtype=np.uint8)
-                axes_image = draw_axes(black_image, (640/2, 480/2,), x_axis, y_axis, z_axis)
+                draw_axes(black_image, (640/2, 480/2,), x_axis, y_axis, z_axis)
                 cv2.imshow("Square on Black", black_image)
-
-                #TODO: Put square
-                # black_square_image = draw_hand_square_on_black(wrist_3d, x_axis, y_axis, z_axis, color_intrinsics)
 
                 # Display the Euler angles (yaw, pitch, roll) on the frame
                 cv2.putText(color_image, f"Yaw: {yaw:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                 cv2.putText(color_image, f"Pitch: {pitch:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                 cv2.putText(color_image, f"Roll: {roll:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+                #TODO: fix the bug
+                # draw_pose_cube(color_image, yaw, pitch, roll)
+
 
                 # Append values to the real-time graph list
                 yaw_vals.append(yaw)
