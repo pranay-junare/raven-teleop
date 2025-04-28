@@ -28,6 +28,15 @@ yaw_vals, pitch_vals, roll_vals = [], [], []
 time_vals = []
 
 
+def get_middle_point(landmarks):
+    """Calculate the middle point between the wrist, index finger, and pinky finger."""
+    wrist = np.array([landmarks[0].x, landmarks[0].y, landmarks[0].z])
+    index_finger = np.array([landmarks[5].x, landmarks[5].y, landmarks[5].z])
+    pinky_finger = np.array([landmarks[17].x, landmarks[17].y, landmarks[17].z])
+    middle_point = (wrist + index_finger + pinky_finger) / 3
+    return middle_point
+
+
 def draw_axes(image, origin, x_axis, y_axis, z_axis, length=50):
     origin = tuple(map(int, origin))
     x_end = tuple(map(int, (origin[0] + length * x_axis[0], origin[1] - length * x_axis[1])))
@@ -149,12 +158,24 @@ while True:
         # If hands are detected, calculate and draw landmarks
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                # Draw landmarks and connections
-                mp_drawing.draw_landmarks(color_image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
                 # Retrieve camera intrinsics for depth-to-3D conversion
                 profile = pipeline.get_active_profile()
                 color_intrinsics = profile.get_stream(rs.stream.color).as_video_stream_profile().get_intrinsics()
+
+                # Draw landmarks and connections
+                mp_drawing.draw_landmarks(color_image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+                
+                # Draw midpoint
+                middle_point_3d  = get_middle_point(hand_landmarks.landmark)
+                h, w = color_image.shape[:2]
+                midpoint_x = int(middle_point_3d[0] * w)
+                midpoint_y = int(middle_point_3d[1] * h)
+                cv2.circle(color_image, (midpoint_x, midpoint_y), 5, (0,  0 , 255), -1) 
+
+                # Depth 
+                depth_value = depth_image[midpoint_y, midpoint_x]
+                cv2.putText(color_image, f'Depth: {depth_value}mm', (400, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
                 # Calculate 3D pose and orientation of the hand
                 roll, pitch, yaw, x_axis, y_axis, z_axis, wrist_3d = calculate_hand_pose(hand_landmarks.landmark, depth_image, color_intrinsics)
