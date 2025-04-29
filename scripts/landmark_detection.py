@@ -6,6 +6,10 @@ from camera_realsense import get_serial_numbers, get_images, initialize_pipeline
 import matplotlib.pyplot as plt
 from utils import draw_axes, draw_pose_cube
 
+IMG_HEIGHT = 480
+IMG_WIDTH = 640
+TEXT_SIZE = 0.7
+
 # Initialize MediaPipe Hands module
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(
@@ -48,10 +52,10 @@ def calculate_hand_pose(hand_landmarks, depth_image, color_intrinsics):
     middle_finger = np.array([hand_landmarks[9].x, hand_landmarks[9].y, hand_landmarks[9].z])
 
     # Test 1    
-    # Convert normalized 2D coordinates to pixel coordinates (assuming 640x480 resolution)
-    wrist_2d = rs.rs2_deproject_pixel_to_point(color_intrinsics, [wrist[0] * 640, wrist[1] * 480], wrist[2])
-    index_finger_2d = rs.rs2_deproject_pixel_to_point(color_intrinsics, [index_finger[0] * 640, index_finger[1] * 480], index_finger[2])
-    middle_finger_2d = rs.rs2_deproject_pixel_to_point(color_intrinsics, [middle_finger[0] * 640, middle_finger[1] * 480], middle_finger[2])
+    # Convert normalized 2D coordinates to pixel coordinates
+    wrist_2d = rs.rs2_deproject_pixel_to_point(color_intrinsics, [wrist[0] * IMG_WIDTH, wrist[1] * IMG_HEIGHT], wrist[2])
+    index_finger_2d = rs.rs2_deproject_pixel_to_point(color_intrinsics, [index_finger[0] * IMG_WIDTH, index_finger[1] * IMG_HEIGHT], index_finger[2])
+    middle_finger_2d = rs.rs2_deproject_pixel_to_point(color_intrinsics, [middle_finger[0] * IMG_WIDTH, middle_finger[1] * IMG_HEIGHT], middle_finger[2])
     wrist_3d = np.array(wrist_2d)
     index_finger_3d = np.array(index_finger_2d)
     middle_finger_3d = np.array(middle_finger_2d)
@@ -82,6 +86,17 @@ def calculate_hand_pose(hand_landmarks, depth_image, color_intrinsics):
     q_x = (vector_y[2] - vector_x[1]) / (4 * q_w)
     q_y = (vector_x[2] - vector_z[0]) / (4 * q_w)
     q_z = (vector_z[1] - vector_y[0]) / (4 * q_w)
+
+    # Ensure quaternion components are valid (not NaN or Inf)
+    if np.any(np.isnan([q_w, q_x, q_y, q_z])) or np.any(np.isinf([q_w, q_x, q_y, q_z])):
+        print("Invalid quaternion components!")
+        # You can either skip processing this frame or assign a default quaternion value
+        q_w, q_x, q_y, q_z = 1, 0, 0, 0  # Default identity quaternion
+    else:
+        # Proceed with calculations for yaw, pitch, and roll
+        pitch_input = 2 * (q_w * q_y - q_z * q_x)
+        pitch_input = np.clip(pitch_input, -1.0, 1.0)
+        pitch = np.arcsin(pitch_input)
 
     # Convert quaternion to Euler angles (roll, pitch, yaw)
     roll = np.arctan2(2*(q_w*q_x + q_y*q_z), 1 - 2*(q_x**2 + q_y**2))
@@ -121,24 +136,26 @@ while True:
                 h, w = color_image.shape[:2]
                 midpoint_x = int(middle_point_3d[0] * w)
                 midpoint_y = int(middle_point_3d[1] * h)
+                midpoint_x = np.clip(midpoint_x, 0, w - 1)  
+                midpoint_y = np.clip(midpoint_y, 0, h - 1)  
                 cv2.circle(color_image, (midpoint_x, midpoint_y), 5, (0,  0 , 255), -1) 
 
                 # Depth calculation in mm
                 depth_value = depth_image[midpoint_y, midpoint_x]
                 depth_value = depth_value*0.25
-                cv2.putText(color_image, f'Depth: {depth_value}mm', (400, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                cv2.putText(color_image, f'Depth: {depth_value}mm', (400, 30), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
 
                 # Calculate 3D pose and orientation of the hand
                 roll, pitch, yaw, x_axis, y_axis, z_axis, wrist_3d = calculate_hand_pose(hand_landmarks.landmark, depth_image, color_intrinsics)
                 
                 # visualization
-                draw_axes(color_image, x_axis, y_axis, z_axis, (640/6, 480/1.2))
-                # draw_pose_cube(color_image, yaw, pitch, roll, (640/4, 480/1.3))
+                draw_axes(color_image, x_axis, y_axis, z_axis, (IMG_WIDTH/6, IMG_HEIGHT/1.2))
+                # draw_pose_cube(color_image, yaw, pitch, roll, (IMG_WIDTH/4, IMG_HEIGHT/1.3))
 
                 # Display the Euler angles (yaw, pitch, roll) on the frame
-                cv2.putText(color_image, f"Yaw: {yaw:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                cv2.putText(color_image, f"Pitch: {pitch:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                cv2.putText(color_image, f"Roll: {roll:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                cv2.putText(color_image, f"Yaw: {yaw:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
+                cv2.putText(color_image, f"Pitch: {pitch:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
+                cv2.putText(color_image, f"Roll: {roll:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
 
                 # Append values to the real-time graph list
                 yaw_vals.append(yaw)
