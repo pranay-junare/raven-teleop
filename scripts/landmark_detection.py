@@ -38,76 +38,36 @@ def get_middle_point(landmarks):
     return middle_point
 
 
-def project_point_to_pixel(point_3d, intrinsics):
-    """Project 3D point into 2D image plane."""
-    x = (point_3d[0] / point_3d[2]) * intrinsics.fx + intrinsics.ppx
-    y = (point_3d[1] / point_3d[2]) * intrinsics.fy + intrinsics.ppy
-    return int(x), int(y)
-
-
-def draw_hand_square_on_black(wrist_3d, x_axis, y_axis, z_axis, intrinsics, image_size=(720, 1280), scale=0.1, color=(0, 255, 0), thickness=2):
-    """
-    Draws a square on a black background based on the hand's local axes.
-    
-    Args:
-        wrist_3d: The 3D position of the wrist (numpy array of shape (3,)).
-        x_axis, y_axis, z_axis: The local 3D unit vectors (numpy arrays of shape (3,)).
-        intrinsics: RealSense camera intrinsics for projection.
-        image_size: Size of the black background (height, width).
-        scale: Size of the square.
-        color: Line color for drawing.
-        thickness: Thickness of the lines.
-        
-    Returns:
-        The generated black image with the drawn square.
-    """
-    # Create a black image
-    black_image = np.zeros((image_size[0], image_size[1], 3), dtype=np.uint8)
-
-    # Calculate the 4 corner points in 3D space
-    corner1 = wrist_3d + scale * ( x_axis + y_axis)
-    corner2 = wrist_3d + scale * ( x_axis - y_axis)
-    corner3 = wrist_3d + scale * (-x_axis - y_axis)
-    corner4 = wrist_3d + scale * (-x_axis + y_axis)
-
-    # Project the 3D points to 2D
-    corner1_2d = project_point_to_pixel(corner1, intrinsics)
-    corner2_2d = project_point_to_pixel(corner2, intrinsics)
-    corner3_2d = project_point_to_pixel(corner3, intrinsics)
-    corner4_2d = project_point_to_pixel(corner4, intrinsics)
-
-    # Draw the square by connecting the corners
-    cv2.line(black_image, corner1_2d, corner2_2d, color, thickness)
-    cv2.line(black_image, corner2_2d, corner3_2d, color, thickness)
-    cv2.line(black_image, corner3_2d, corner4_2d, color, thickness)
-    cv2.line(black_image, corner4_2d, corner1_2d, color, thickness)
-
-    return black_image
-
-
-# Function to calculate hand pose (3D pose and orientation)
 def calculate_hand_pose(hand_landmarks, depth_image, color_intrinsics):
+    '''
+        Function to calculate hand pose (3D pose and orientation)
+    '''
     # Get the 3D coordinates of wrist, index, and middle finger landmarks
     wrist = np.array([hand_landmarks[0].x, hand_landmarks[0].y, hand_landmarks[0].z])
     index_finger = np.array([hand_landmarks[5].x, hand_landmarks[5].y, hand_landmarks[5].z])
     middle_finger = np.array([hand_landmarks[9].x, hand_landmarks[9].y, hand_landmarks[9].z])
 
+    # Test 1    
     # Convert normalized 2D coordinates to pixel coordinates (assuming 640x480 resolution)
     wrist_2d = rs.rs2_deproject_pixel_to_point(color_intrinsics, [wrist[0] * 640, wrist[1] * 480], wrist[2])
     index_finger_2d = rs.rs2_deproject_pixel_to_point(color_intrinsics, [index_finger[0] * 640, index_finger[1] * 480], index_finger[2])
     middle_finger_2d = rs.rs2_deproject_pixel_to_point(color_intrinsics, [middle_finger[0] * 640, middle_finger[1] * 480], middle_finger[2])
-
     wrist_3d = np.array(wrist_2d)
     index_finger_3d = np.array(index_finger_2d)
     middle_finger_3d = np.array(middle_finger_2d)
+
+    # Test 2
+    # wrist_3d = wrist
+    # index_finger_3d = index_finger
+    # middle_finger_3d = middle_finger
 
     # Vectors AB (Index - Wrist) and AC (Middle - Wrist)
     vector_ab = index_finger_3d - wrist_3d
     vector_ac = middle_finger_3d - wrist_3d
 
     # Hand normal vector is the cross product of AB and AC
-    hand_normal = np.cross(vector_ab, vector_ac)
-    hand_normal = hand_normal / np.linalg.norm(hand_normal)  # Normalize the normal
+    vector_z = np.cross(vector_ab, vector_ac)
+    vector_z = vector_z / np.linalg.norm(vector_z)  # Normalize the normal
 
     # Calculate "X" direction (mean of wrist, index, and middle)
     mean_point = (wrist_3d + index_finger_3d + middle_finger_3d) / 3
@@ -115,20 +75,20 @@ def calculate_hand_pose(hand_landmarks, depth_image, color_intrinsics):
     vector_x = vector_x / np.linalg.norm(vector_x)
 
     # Calculate "Y" direction (cross product of normal and X)
-    vector_y = np.cross(hand_normal, vector_x)
+    vector_y = np.cross(vector_z, vector_x)
 
     # Quaternion calculation (simplified for visualization)
-    q_w = np.sqrt(1 + vector_x[0] + vector_y[1] + hand_normal[2]) / 2
+    q_w = np.sqrt(1 + vector_x[0] + vector_y[1] + vector_z[2]) / 2
     q_x = (vector_y[2] - vector_x[1]) / (4 * q_w)
-    q_y = (vector_x[2] - hand_normal[0]) / (4 * q_w)
-    q_z = (hand_normal[1] - vector_y[0]) / (4 * q_w)
+    q_y = (vector_x[2] - vector_z[0]) / (4 * q_w)
+    q_z = (vector_z[1] - vector_y[0]) / (4 * q_w)
 
     # Convert quaternion to Euler angles (roll, pitch, yaw)
     roll = np.arctan2(2*(q_w*q_x + q_y*q_z), 1 - 2*(q_x**2 + q_y**2))
     pitch = np.arcsin(2*(q_w*q_y - q_z*q_x))
     yaw = np.arctan2(2*(q_w*q_z + q_x*q_y), 1 - 2*(q_y**2 + q_z**2))
 
-    return roll, pitch, yaw, vector_x, vector_y, hand_normal, wrist_3d
+    return roll, pitch, yaw, vector_x, vector_y, vector_z, wrist_3d
 
 
 # Main loop
@@ -163,26 +123,22 @@ while True:
                 midpoint_y = int(middle_point_3d[1] * h)
                 cv2.circle(color_image, (midpoint_x, midpoint_y), 5, (0,  0 , 255), -1) 
 
-                # Depth 
+                # Depth calculation in mm
                 depth_value = depth_image[midpoint_y, midpoint_x]
-                cv2.putText(color_image, f'Depth: {depth_value}mm', (400, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                depth_value = depth_value*0.25
+                cv2.putText(color_image, f'Depth: {depth_value}mm', (400, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
                 # Calculate 3D pose and orientation of the hand
                 roll, pitch, yaw, x_axis, y_axis, z_axis, wrist_3d = calculate_hand_pose(hand_landmarks.landmark, depth_image, color_intrinsics)
                 
                 # visualization
-                black_image = np.zeros((480, 640, 3), dtype=np.uint8)
-                draw_axes(black_image, (640/2, 480/2,), x_axis, y_axis, z_axis)
-                cv2.imshow("Square on Black", black_image)
+                draw_axes(color_image, x_axis, y_axis, z_axis, (640/6, 480/1.2))
+                # draw_pose_cube(color_image, yaw, pitch, roll, (640/4, 480/1.3))
 
                 # Display the Euler angles (yaw, pitch, roll) on the frame
-                cv2.putText(color_image, f"Yaw: {yaw:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                cv2.putText(color_image, f"Pitch: {pitch:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                cv2.putText(color_image, f"Roll: {roll:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-
-                #TODO: fix the bug
-                # draw_pose_cube(color_image, yaw, pitch, roll)
-
+                cv2.putText(color_image, f"Yaw: {yaw:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                cv2.putText(color_image, f"Pitch: {pitch:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                cv2.putText(color_image, f"Roll: {roll:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
                 # Append values to the real-time graph list
                 yaw_vals.append(yaw)
