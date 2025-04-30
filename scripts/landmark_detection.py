@@ -4,7 +4,11 @@ import numpy as np
 import pyrealsense2 as rs
 from camera_realsense import get_serial_numbers, get_images, initialize_pipelines
 import matplotlib.pyplot as plt
-from utils import draw_axes, draw_pose_cube
+from utils import draw_axes, draw_pose_cube, map_range
+import zmq
+import json
+import time
+import math
 
 IMG_HEIGHT = 480
 IMG_WIDTH = 640
@@ -32,6 +36,12 @@ ax.set_xlim(0, 100)  # We'll shift the graph along the x-axis to simulate real-t
 yaw_vals, pitch_vals, roll_vals = [], [], []
 time_vals = []
 
+# Initialize ZMQ for sending commands
+ctx = zmq.Context()
+sock = ctx.socket(zmq.PUB)
+sock.bind("tcp://*:5555")
+time.sleep(1)
+
 
 def get_middle_point(landmarks):
     """Calculate the middle point between the wrist, index finger, and pinky finger."""
@@ -40,6 +50,16 @@ def get_middle_point(landmarks):
     pinky_finger = np.array([landmarks[17].x, landmarks[17].y, landmarks[17].z])
     middle_point = (wrist + index_finger + pinky_finger) / 3
     return middle_point
+
+def compute_yaw_angle(hand_landmarks):
+    midpoint = get_middle_point(hand_landmarks)
+    wrist = np.array([hand_landmarks[0].x, hand_landmarks[0].y, hand_landmarks[0].z])
+    dx = midpoint[0] - wrist[0]
+    dy = midpoint[1] - wrist[1]
+
+    # Direction vector
+    angle = math.atan2(dx, -dy)  # vertical axis is (0, -1)
+    return angle
 
 
 def calculate_hand_pose(hand_landmarks, depth_image, color_intrinsics):
@@ -109,6 +129,7 @@ def calculate_hand_pose(hand_landmarks, depth_image, color_intrinsics):
 # Main loop
 frame_counter = 0
 while True:
+    time.sleep(0.1)  # Sleep for 10ms to control the loop speed
     # Get frames from the RealSense camera
     depth_image, color_image = get_images(pipeline)
     if depth_image is not None and color_image is not None:
@@ -143,19 +164,26 @@ while True:
                 # Depth calculation in mm
                 depth_value = depth_image[midpoint_y, midpoint_x]
                 depth_value = depth_value*0.25
-                cv2.putText(color_image, f'Depth: {depth_value}mm', (400, 30), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
 
                 # Calculate 3D pose and orientation of the hand
                 roll, pitch, yaw, x_axis, y_axis, z_axis, wrist_3d = calculate_hand_pose(hand_landmarks.landmark, depth_image, color_intrinsics)
                 
+                yaw = compute_yaw_angle(hand_landmarks.landmark)
+                robot_speed = map_range(depth_value, 500, 800, -100, 100)  # Speed: (-100 to 100)
+                robot_yaw = map_range(yaw, -np.pi, np.pi, -180, 180)  # Yaw: (-90 to 90)
+                sock.send_string(json.dumps({"action": "forward", "speed": robot_speed}))
+                sock.send_string(json.dumps({"action": "yaw", "speed": robot_yaw}))
+
                 # visualization
                 draw_axes(color_image, x_axis, y_axis, z_axis, (IMG_WIDTH/6, IMG_HEIGHT/1.2))
                 # draw_pose_cube(color_image, yaw, pitch, roll, (IMG_WIDTH/4, IMG_HEIGHT/1.3))
 
                 # Display the Euler angles (yaw, pitch, roll) on the frame
-                cv2.putText(color_image, f"Yaw: {yaw:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
-                cv2.putText(color_image, f"Pitch: {pitch:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
-                cv2.putText(color_image, f"Roll: {roll:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
+                cv2.putText(color_image, f"Robot Yaw: {robot_yaw:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
+                cv2.putText(color_image, f"Robot Speed: {robot_speed:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
+                # cv2.putText(color_image, f"Pitch: {pitch:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
+                # cv2.putText(color_image, f"Roll: {roll:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
+                # cv2.putText(color_image, f'Depth: {depth_value}mm', (400, 30), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
 
                 # Append values to the real-time graph list
                 yaw_vals.append(yaw)

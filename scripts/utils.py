@@ -60,3 +60,24 @@ def draw_pose_cube(img, y, p, r, origin = (0.5, 0.5), size=50., in_degrees=False
     cv2.line(img, (int(x3), int(y3)), (int(x3 + x2 - center_x), int(y3 + y2 - center_y)), (0, 255, 0), 2)
 
     return img
+
+
+def map_range(value, in_min, in_max, out_min, out_max):
+    """
+    Maps a value from one range to another.
+
+    Args:
+        value (float): Input value to map.
+        in_min (float): Minimum of the input range.
+        in_max (float): Maximum of the input range.
+        out_min (float): Minimum of the output range.
+        out_max (float): Maximum of the output range.
+
+    Returns:
+        float: Mapped value in the output range.
+    """
+    # Clamp input value to input range
+    value = max(min(value, in_max), in_min)
+    
+    # Perform linear mapping
+    return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
