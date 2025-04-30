@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 
 CAMERA_INVERTED = False
+CAMERA_FLIP = True
 
 def get_serial_numbers():
     context = rs.context()
@@ -36,6 +37,9 @@ def get_images(pipeline):
     if CAMERA_INVERTED == True:
         depth_image = cv2.rotate(depth_image, cv2.ROTATE_180)
         color_image = cv2.rotate(color_image, cv2.ROTATE_180)
+    if CAMERA_FLIP == True:
+        depth_image = cv2.flip(depth_image, 1)
+        color_image = cv2.flip(color_image, 1)
     return depth_image, color_image
 
 
