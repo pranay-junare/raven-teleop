@@ -1,11 +1,20 @@
 # raven-teleop
 CSCI5551
 
-# Simulations
- - Gazebo
+# Simulators
+ - Gazebo ✅
  - Genesis
  - Mujoco
  - Kineval
+
+# Simulation Robots
+ - Turtlebot ✅
+ - Tugbot ✅
+ - Legged robot(eg: SPOT)
+ - Drone
+
+# Realworld Robots
+- Turtlebot
 
 # Scripts
 ## Installation:
@@ -32,4 +41,5 @@ python landmark_detection.py
 
 ![alt text](assets/landmark_detection.png)
 
-#TODO: Fix YPR-calculation
+### Robot Speed+Angles Calculation
+![alt text](assets/speed_yaw_calculation.png)
