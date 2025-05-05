@@ -35,31 +35,26 @@ class TurtleBot4ZMQController(Node):
                 msg = self.socket.recv_string()
                 # self.get_logger().info(f"ZMQ Received: {msg}")
                 data = json.loads(msg)
-
-                action = data.get("action")
-                speed = float(data.get("speed", 0)) # default speed
-                print("Action is: ", action, " Speed is: ", speed)
+                print(f"Received ZMQ message: {data}")
+                robot_speed = float(data.get("robot_speed", 0)) # default speed
+                robot_yaw = float(data.get("robot_yaw", 0)) # default speed
 
                 twist = Twist()
-                if action == "forward":
-                    if speed < 10 and speed > -10:
-                        speed = 0.0
-                    else:
-                        speed = map_range(speed, -100.0, 100.0, -4, 4) 
-                    twist.linear.x = speed
-                elif action == "yaw":
-                    speed = -speed 
-                    if speed < 10 and speed > -10:  
-                        speed = 0.0
-                    else:
-                        speed = map_range(speed, -180.0, 180.0, -4.0, 4.0)
-                    twist.angular.z = speed
-                elif action == "stop":
-                    twist = Twist()  # zero velocities
+                # Linear speed
+                if robot_speed < 10 and robot_speed > -10:
+                    robot_speed = 0.0
                 else:
-                    self.get_logger().warn(f"Unknown action: {action}")
-                    return
-
+                    robot_speed = map_range(robot_speed, -100.0, 100.0, -0.5, 0.5) 
+                twist.linear.x = robot_speed
+                
+                # Yaw speed
+                robot_yaw = -robot_yaw 
+                if robot_yaw < 5 and robot_yaw > -5:  
+                    robot_yaw = 0.0
+                else:
+                    robot_yaw = map_range(robot_yaw, -180.0, 180.0, -2.0, 2.0)
+                twist.angular.z = robot_yaw
+                
                 self.current_twist = twist
             else:
                 # No data received, keep the robot stopped
