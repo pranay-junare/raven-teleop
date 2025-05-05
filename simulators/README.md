@@ -26,7 +26,12 @@ Client Interfaces with the RAVEN-TELEOP
 
 
 
-## Mujoco
+## PyBullet
+- Robot Tested: Unitree's A1
+    - Clone the `$ roslaunch turtlebot3_bringup turtlebot3_robot.launch`
+    - `$ python scripts/landmark_detection.py`
+    - `$ python ./simulators/ros_realrobot/turtlebot_control.py`
+
 
 
 
