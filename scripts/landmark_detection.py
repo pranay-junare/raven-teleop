@@ -14,11 +14,6 @@ IMG_HEIGHT = 480
 IMG_WIDTH = 640
 TEXT_SIZE = 0.7
 
-current_speed = 0;
-current_yaw = 0;
-alpha = 0.9;
-
-plt.ion()
 # Initialize MediaPipe Hands module
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(
@@ -41,17 +36,6 @@ ax.set_xlim(0, 100)  # We'll shift the graph along the x-axis to simulate real-t
 yaw_vals, pitch_vals, roll_vals = [], [], []
 time_vals = []
 
-fig_pointer, ax_pointer = plt.subplots()
-ax_pointer.set_xlim(-50, 50)  # Yaw range
-ax_pointer.set_ylim(-120, 120)  # Speed range (based on map_range)
-pointer, = ax_pointer.plot([], [], 'ro')  # Start with no data
-ax_pointer.set_xlabel('Yaw (degrees)')
-ax_pointer.set_ylabel('Speed')
-ax_pointer.set_title('Live Yaw vs Speed')
-ax_pointer.grid(True)
-
-fig_pointer.show()  # Ensure the window opens immediately
-
 # Initialize ZMQ for sending commands
 ctx = zmq.Context()
 sock = ctx.socket(zmq.PUB)
@@ -67,8 +51,19 @@ def get_middle_point(landmarks):
     middle_point = (wrist + index_finger + pinky_finger) / 3
     return middle_point
 
+def get_yaw_point(landmarks):
+    """Calculate the middle point between the wrist, index finger, and pinky finger."""
+    index_finger = np.array([landmarks[5].x, landmarks[5].y, landmarks[5].z])
+    pinky_finger = np.array([landmarks[17].x, landmarks[17].y, landmarks[17].z])
+    # f2_finger = np.array([landmarks[9].x, landmarks[9].y, landmarks[9].z])
+    # f3_finger = np.array([landmarks[13].x, landmarks[13].y, landmarks[13].z])
+    # middle_point = (index_finger + pinky_finger + f2_finger +  f3_finger)/4
+
+    middle_point = (index_finger + pinky_finger)/2
+    return middle_point
+
 def compute_yaw_angle(hand_landmarks):
-    midpoint = get_middle_point(hand_landmarks)
+    midpoint = get_yaw_point(hand_landmarks)
     wrist = np.array([hand_landmarks[0].x, hand_landmarks[0].y, hand_landmarks[0].z])
     dx = midpoint[0] - wrist[0]
     dy = midpoint[1] - wrist[1]
@@ -187,8 +182,7 @@ while True:
                 yaw = compute_yaw_angle(hand_landmarks.landmark)
                 robot_speed = map_range(depth_value, 500, 800, -100, 100)  # Speed: (-100 to 100)
                 robot_yaw = map_range(yaw, -np.pi, np.pi, -180, 180)  # Yaw: (-90 to 90)
-                #sock.send_string(json.dumps({"action": "forward", "speed": robot_speed}))
-                #sock.send_string(json.dumps({"action": "yaw", "speed": robot_yaw}))
+                sock.send_string(json.dumps({ "robot_speed": robot_speed, "robot_yaw": robot_yaw }))                # sock.send_string(json.dumps({"action": "yaw", "speed": robot_yaw}))
 
                 # visualization
                 draw_axes(color_image, x_axis, y_axis, z_axis, (IMG_WIDTH/6, IMG_HEIGHT/1.2))
@@ -197,8 +191,6 @@ while True:
                 # Display the Euler angles (yaw, pitch, roll) on the frame
                 cv2.putText(color_image, f"Robot Yaw: {robot_yaw:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
                 cv2.putText(color_image, f"Robot Speed: {robot_speed:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
-                current_speed = robot_speed;
-                current_yaw = robot_yaw;
                 # cv2.putText(color_image, f"Pitch: {pitch:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
                 # cv2.putText(color_image, f"Roll: {roll:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
                 # cv2.putText(color_image, f'Depth: {depth_value}mm', (400, 30), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
@@ -223,30 +215,13 @@ while True:
                 ax.plot(time_vals, roll_vals, label="Roll", color='b')
                 ax.legend(loc='upper left')
                 plt.pause(0.01)  # Update the graph in real-time
-                
-                #Update the pointer position on plot
-                
-                # Display the color image with landmarks and Euler angles
-                cv2.imshow("Hand Landmark and Pose", color_image)
-        
         else:
-            #pointer.set_data([], [])
-            fig_pointer.canvas.draw_idle()
-            fig_pointer.canvas.flush_events()
-            current_yaw = alpha * current_yaw
-            current_speed = alpha * current_speed
-            reset_frame = color_image.copy()
-            cv2.putText(reset_frame, "No hand detected", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 0, 255), 2)
-            cv2.imshow("Hand Landmark and Pose", reset_frame)
-            # Optionally send zero commands to stop movement
-            #sock.send_string(json.dumps({"action": "forward", "speed": 0.0}))
-            #sock.send_string(json.dumps({"action": "yaw", "speed": 0.0}))
-
-        pointer.set_data([current_yaw], [current_speed])
-        sock.send_string(json.dumps({ "forward": current_speed, "Yaw": current_yaw }))
-        fig_pointer.canvas.draw_idle()
-        fig_pointer.canvas.flush_events()
-        plt.pause(0.001)
+            # If no hands are detected, send stop command
+            robot_speed = 0
+            robot_yaw = 0
+            sock.send_string(json.dumps({ "robot_speed": robot_speed, "robot_yaw": robot_yaw }))                # sock.send_string(json.dumps({"action": "yaw", "speed": robot_yaw}))
+        # Display the color image with landmarks and Euler angles
+        cv2.imshow("Hand Landmark and Pose", color_image)
 
     # Exit on pressing 'q'
     if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -257,4 +232,3 @@ while True:
 # Stop the RealSense pipeline
 pipeline.stop()
 cv2.destroyAllWindows()
-
