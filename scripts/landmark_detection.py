@@ -29,12 +29,46 @@ serial, pipeline = next(iter(pipelines.items()))
 # Initialize MediaPipe drawing module
 mp_drawing = mp.solutions.drawing_utils
 
-# Initialize a plot for real-time graph of yaw, pitch, roll
-fig, ax = plt.subplots()
-ax.set_ylim(-180, 180)
-ax.set_xlim(0, 100)  # We'll shift the graph along the x-axis to simulate real-time plotting
-yaw_vals, pitch_vals, roll_vals = [], [], []
-time_vals = []
+plt.ion()
+
+# Create a single figure with 2 subplots side-by-side
+fig, (ax_speed, ax_yaw) = plt.subplots(1, 2, figsize=(10, 5))
+fig.patch.set_facecolor('black')  # Set background for the whole figure
+
+# --- SPEED (Throttle) plot (Y-axis only) ---
+ax_speed.set_facecolor('black')
+ax_speed.set_xlim(-1, 1)
+ax_speed.set_ylim(-100, 100)
+ax_speed.axhline(0, color='green', linewidth=1)
+ax_speed.axvline(0, color='green', linewidth=1)
+ax_speed.spines['top'].set_color('none')
+ax_speed.spines['right'].set_color('none')
+ax_speed.spines['left'].set_color('green')
+ax_speed.spines['bottom'].set_color('green')
+ax_speed.tick_params(colors='green', labelcolor='white')
+ax_speed.set_ylabel('Throttle', color='white')
+ax_speed.set_title("Throttle (Speed)", color='white')
+pointer_speed, = ax_speed.plot([], [], 'ro', markersize=10)
+
+# --- YAW plot (X-axis only) ---
+ax_yaw.set_facecolor('black')
+ax_yaw.set_xlim(-90, 90)
+ax_yaw.set_ylim(-1, 1)
+ax_yaw.axhline(0, color='green', linewidth=1)
+ax_yaw.axvline(0, color='green', linewidth=1)
+ax_yaw.spines['top'].set_color('none')
+ax_yaw.spines['right'].set_color('none')
+ax_yaw.spines['left'].set_color('green')
+ax_yaw.spines['bottom'].set_color('green')
+ax_yaw.tick_params(colors='green', labelcolor='white')
+ax_yaw.set_xlabel('Yaw', color='white')
+ax_yaw.set_title("Yaw (Direction)", color='white')
+pointer_yaw, = ax_yaw.plot([], [], 'ro', markersize=10)
+
+fig.tight_layout()
+fig.show()
+
+
 
 # Initialize ZMQ for sending commands
 ctx = zmq.Context()
@@ -194,32 +228,21 @@ while True:
                 # cv2.putText(color_image, f"Pitch: {pitch:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
                 # cv2.putText(color_image, f"Roll: {roll:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
                 # cv2.putText(color_image, f'Depth: {depth_value}mm', (400, 30), cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE, (0, 255, 0), 2)
+                pointer_speed.set_data([0], [robot_speed])  # Vertical plot, centered X
+                pointer_yaw.set_data([robot_yaw], [0])      # Horizontal plot, centered Y
 
-                # Append values to the real-time graph list
-                yaw_vals.append(yaw)
-                pitch_vals.append(pitch)
-                roll_vals.append(roll)
-                time_vals.append(frame_counter)
-
-                # Update the plot
-                if len(yaw_vals) > 100:  # Limit the number of data points to 100 for a smoother graph
-                    yaw_vals.pop(0)
-                    pitch_vals.pop(0)
-                    roll_vals.pop(0)
-                    time_vals.pop(0)
-
-                # Plotting in real-time
-                ax.clear()
-                ax.plot(time_vals, yaw_vals, label="Yaw", color='r')
-                ax.plot(time_vals, pitch_vals, label="Pitch", color='g')
-                ax.plot(time_vals, roll_vals, label="Roll", color='b')
-                ax.legend(loc='upper left')
-                plt.pause(0.01)  # Update the graph in real-time
+                fig.canvas.draw_idle()
+                fig.canvas.flush_events()
+                plt.pause(0.001)
+               
         else:
             # If no hands are detected, send stop command
             robot_speed = 0
             robot_yaw = 0
-            sock.send_string(json.dumps({ "robot_speed": robot_speed, "robot_yaw": robot_yaw }))                # sock.send_string(json.dumps({"action": "yaw", "speed": robot_yaw}))
+            sock.send_string(json.dumps({ "robot_speed": robot_speed, "robot_yaw": robot_yaw }))  
+            pointer_speed.set_data([0], [robot_speed])  # Vertical plot, centered X
+            pointer_yaw.set_data([robot_yaw], [0])      # Horizontal plot, centered Y
+              # sock.send_string(json.dumps({"action": "yaw", "speed": robot_yaw}))
         # Display the color image with landmarks and Euler angles
         cv2.imshow("Hand Landmark and Pose", color_image)
 
