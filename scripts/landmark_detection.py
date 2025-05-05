@@ -240,8 +240,11 @@ while True:
             robot_speed = 0
             robot_yaw = 0
             sock.send_string(json.dumps({ "robot_speed": robot_speed, "robot_yaw": robot_yaw }))  
-            pointer_speed.set_data([0], [robot_speed])  # Vertical plot, centered X
-            pointer_yaw.set_data([robot_yaw], [0])      # Horizontal plot, centered Y
+            pointer_speed.set_data([0], [0])    
+            pointer_yaw.set_data([0], [0])
+            fig.canvas.draw_idle()
+            fig.canvas.flush_events()
+            plt.pause(0.001)
               # sock.send_string(json.dumps({"action": "yaw", "speed": robot_yaw}))
         # Display the color image with landmarks and Euler angles
         cv2.imshow("Hand Landmark and Pose", color_image)
