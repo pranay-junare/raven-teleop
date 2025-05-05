@@ -51,8 +51,19 @@ def get_middle_point(landmarks):
     middle_point = (wrist + index_finger + pinky_finger) / 3
     return middle_point
 
+def get_yaw_point(landmarks):
+    """Calculate the middle point between the wrist, index finger, and pinky finger."""
+    index_finger = np.array([landmarks[5].x, landmarks[5].y, landmarks[5].z])
+    pinky_finger = np.array([landmarks[17].x, landmarks[17].y, landmarks[17].z])
+    # f2_finger = np.array([landmarks[9].x, landmarks[9].y, landmarks[9].z])
+    # f3_finger = np.array([landmarks[13].x, landmarks[13].y, landmarks[13].z])
+    # middle_point = (index_finger + pinky_finger + f2_finger +  f3_finger)/4
+
+    middle_point = (index_finger + pinky_finger)/2
+    return middle_point
+
 def compute_yaw_angle(hand_landmarks):
-    midpoint = get_middle_point(hand_landmarks)
+    midpoint = get_yaw_point(hand_landmarks)
     wrist = np.array([hand_landmarks[0].x, hand_landmarks[0].y, hand_landmarks[0].z])
     dx = midpoint[0] - wrist[0]
     dy = midpoint[1] - wrist[1]
@@ -171,8 +182,7 @@ while True:
                 yaw = compute_yaw_angle(hand_landmarks.landmark)
                 robot_speed = map_range(depth_value, 500, 800, -100, 100)  # Speed: (-100 to 100)
                 robot_yaw = map_range(yaw, -np.pi, np.pi, -180, 180)  # Yaw: (-90 to 90)
-                sock.send_string(json.dumps({"action": "forward", "speed": robot_speed}))
-                sock.send_string(json.dumps({"action": "yaw", "speed": robot_yaw}))
+                sock.send_string(json.dumps({ "robot_speed": robot_speed, "robot_yaw": robot_yaw }))                # sock.send_string(json.dumps({"action": "yaw", "speed": robot_yaw}))
 
                 # visualization
                 draw_axes(color_image, x_axis, y_axis, z_axis, (IMG_WIDTH/6, IMG_HEIGHT/1.2))
@@ -205,7 +215,11 @@ while True:
                 ax.plot(time_vals, roll_vals, label="Roll", color='b')
                 ax.legend(loc='upper left')
                 plt.pause(0.01)  # Update the graph in real-time
-
+        else:
+            # If no hands are detected, send stop command
+            robot_speed = 0
+            robot_yaw = 0
+            sock.send_string(json.dumps({ "robot_speed": robot_speed, "robot_yaw": robot_yaw }))                # sock.send_string(json.dumps({"action": "yaw", "speed": robot_yaw}))
         # Display the color image with landmarks and Euler angles
         cv2.imshow("Hand Landmark and Pose", color_image)
 
