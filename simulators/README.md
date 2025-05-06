@@ -28,3 +28,4 @@ Client Interfaces with the RAVEN-TELEOP
 - Robot Tested: Unitree's A1
     - Clone the repository `$ git@github.com:wupanhao/quadruped_simulation.git`
     - Replace the `JoyStickInterface.py` with `a1_control.py`
+    - Run the simulation using `python3 run_robot.py`
