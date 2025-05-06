@@ -1,17 +1,20 @@
-# raven-teleop
+# Group 12 raven-teleop
 CSCI5551
+- Heaven Lindenstruth
+- Pranay Junare
+- Yashwant Moharil
+- Zhenlong Fang
 
 # Simulators
  - Gazebo ✅
- - Genesis
- - Mujoco
- - Kineval
+ - PyBullet ✅
+ - Kineval ✅
 
 # Simulation Robots
  - Turtlebot ✅
  - Tugbot ✅
- - Legged robot(eg: SPOT)
- - Drone
+ - Unitree's A1 ✅
+ - MR2 ✅
 
 # Realworld Robots
 - Turtlebot
