@@ -1,48 +1,49 @@
-# Group 12 raven-teleop
-CSCI5551
-- Heaven Lindenstruth
-- Pranay Junare
-- Yashwant Moharil
-- Zhenlong Fang
+# RAVEN TELEOP
+Gesture Based Tele-Operation Unleashed! \
+RAVEN TELEOP is versatile, low-cost, robot-agnostic, simulator-agnostic and requires no special hardware.
 
-# Simulators
- - Gazebo ✅
- - PyBullet ✅
- - Kineval ✅
+(CSCI5551 Course Project)
 
-# Simulation Robots
- - Turtlebot ✅
- - Tugbot ✅
- - Unitree's A1 ✅
- - MR2 ✅
+## Demo
+Full Demo Link: [Demo](https://www.youtube.com/watch?v=-pNUi8llU3A&t=25s)
 
-# Realworld Robots
-- Turtlebot ✅
-
-# Scripts
-## Installation:
-- Create mamba/conda environment
-```
-mamba env create -f env.yaml
-```
-- Activate the environment using:
-```
-mamba activate raven_env
-```
+![alt text](assets/raven_teleop.gif)
 
 
-## Run:
-- To test Intel Realsense RGB-D L515 camera:
-```
-python camera_realsense.py
-```
 
-- Run hand Landmark detection:
-```
-python landmark_detection.py
-```
+## Introduction
+RAVEN TELEOP is a middleware tele-operation framework for robots that translates 6-DoF hand gestures into real-time tele-operation commands, enabling seamless control across simulators like KinEval, PyBullet, Genesis, and Gazebo-ROS.
+- **Workflow**:
+![alt text](assets/framework.png)
 
-![alt text](assets/landmark_detection.png)
+## Supported Platforms
 
-### Robot Speed+Angles Calculation
-![alt text](assets/speed_yaw_calculation.png)
+| Category              | Supported Items                            |
+|-----------------------|---------------------------------------------|
+| **Simulators**        | ✅ Gazebo · ✅ PyBullet · ✅ Kineval         |
+| **Simulation Robots** | ✅ Turtlebot · ✅ Tugbot · ✅ Unitree A1 · ✅ MR2 |
+| **Real-World Robots** | ✅ Turtlebot                                |
+
+`Note`: Moreover, you can follow codebase in `/simulators` to similary extend it to additional platforms.
+
+
+## Installation
+
+1. Create the mamba environment (fast drop-in replacement for conda)
+   ```bash
+   mamba env create -f env.yaml
+   mamba activate raven_env
+    ```
+
+## Run
+
+1. **Server side**: Run hand Landmark detection, create server & send data over ZMQ
+    ```
+    python landmark_detection.py
+    ```
+
+2. **Client side**: follow instructions in `simulators/README.md` to run our example simulated/real-world platforms.
+
+## License
+MIT
+
